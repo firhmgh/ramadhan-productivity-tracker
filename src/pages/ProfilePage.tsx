@@ -46,14 +46,14 @@ export function ProfilePage() {
   ];
 
   const getProgressPercentage = () => {
-    // Calculate overall progress based on targets
+    // Menghitung progress keseluruhan (target 30 hari)
     const maxPuasa = 30;
-    const maxSholat = 150; // 30 days * 5 prayers
+    const maxSholat = 150; // 30 hari * 5 waktu
     
     const puasaProgress = (stats.totalPuasa / maxPuasa) * 100;
     const sholatProgress = (stats.totalSholat / maxSholat) * 100;
     
-    return Math.round((puasaProgress + sholatProgress) / 2);
+    return Math.min(100, Math.round((puasaProgress + sholatProgress) / 2));
   };
 
   const progress = getProgressPercentage();
@@ -209,7 +209,7 @@ export function ProfilePage() {
             {user.gender === 'male' && (
               <p>✓ Reminder Sholat Jumat aktif</p>
             )}
-            <p>✓ Data tersimpan secara lokal</p>
+            <p>✓ Sinkronisasi Cloud Supabase Aktif</p>
             <p>✓ Reminder berdasarkan mazhab</p>
           </div>
         </motion.div>
@@ -220,7 +220,7 @@ export function ProfilePage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5 }}
-        className="bg-gradient-to-r from-teal-50 to-emerald-50 rounded-2xl p-6 border-l-4 border-emerald-500"
+        className="bg-gradient-to-r from-teal-50 to-emerald-50 rounded-2xl p-6 border-l-4 border-emerald-500 shadow-sm"
       >
         <p className="text-emerald-800 italic text-center">
           "Dan orang-orang yang berjihad untuk (mencari keridhaan) Kami, 
@@ -240,8 +240,8 @@ export function ProfilePage() {
           <p>ID Pengguna: {user.id}</p>
           <p>Tanggal Bergabung: {memberSince.toLocaleString('id-ID')}</p>
           <p className="mt-4 text-xs text-gray-500">
-            💾 Semua data Anda disimpan secara lokal di perangkat ini.
-            Data akan hilang jika Anda menghapus cache browser atau logout.
+            💾 Data Anda tersimpan aman secara cloud di Supabase. 
+            Sinkronisasi otomatis aktif saat Anda terhubung ke internet.
           </p>
         </div>
       </motion.div>

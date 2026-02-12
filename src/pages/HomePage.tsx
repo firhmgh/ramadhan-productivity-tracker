@@ -1,8 +1,8 @@
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
-import { motion } from 'motion/react';
-import { BookOpen, Heart, Moon, DollarSign, Target, TrendingUp } from 'lucide-react';
-import { Link } from 'react-router';
+import { motion } from 'framer-motion'; 
+import { BookOpen, Heart, Moon, DollarSign, Target, TrendingUp, Calendar, CheckSquare } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export function HomePage() {
   const { user } = useAuth();
@@ -10,8 +10,10 @@ export function HomePage() {
   const stats = getStats();
 
   const today = new Date();
-  const ramadhanStart = new Date('2026-02-28'); // Example: Ramadhan 1447
-  const dayOfRamadhan = Math.ceil((today.getTime() - ramadhanStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const ramadhanStart = new Date('2026-02-28');
+  const diffTime = today.getTime() - ramadhanStart.getTime();
+  const dayOfRamadhan = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+  const displayDay = dayOfRamadhan > 0 ? `Hari ke-${dayOfRamadhan}` : `Menuju Ramadhan`;
 
   const statCards = [
     { 
@@ -44,8 +46,16 @@ export function HomePage() {
     },
   ];
 
+  // Quick Actions Buttons config
+  const quickActions = [
+    { to: "/daily", label: "Daily Tracker", icon: CheckSquare, color: "bg-emerald-50 text-emerald-700 hover:bg-emerald-100" },
+    { to: "/puasa", label: "Puasa Tracker", icon: Moon, color: "bg-purple-50 text-purple-700 hover:bg-purple-100" },
+    { to: "/zakat", label: "Zakat", icon: DollarSign, color: "bg-amber-50 text-amber-700 hover:bg-amber-100" },
+    { to: "/agenda", label: "Agenda", icon: Calendar, color: "bg-blue-50 text-blue-700 hover:bg-blue-100" }
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
       {/* Welcome Card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -55,10 +65,10 @@ export function HomePage() {
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-3xl font-bold mb-2">
-              Ramadhan Mubarak, {user?.fullName.split(' ')[0]}! 🌙
+               Ramadhan Mubarak, {user?.fullName?.split(' ')[0] || 'Saudara'}! 🌙
             </h2>
             <p className="text-emerald-100 text-lg mb-4">
-              Hari ke-{dayOfRamadhan} • Mazhab: {user?.mazhab.toUpperCase()}
+              {displayDay} • Mazhab: {user?.mazhab?.toUpperCase() || '-'}
             </p>
             <p className="text-emerald-50">
               Semoga ibadah hari ini penuh berkah dan diterima oleh Allah SWT
@@ -103,42 +113,18 @@ export function HomePage() {
           Quick Actions
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Link to="/daily">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-full p-4 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors text-sm font-medium"
-            >
-              📋 Daily Tracker
-            </motion.button>
-          </Link>
-          <Link to="/puasa">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-full p-4 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors text-sm font-medium"
-            >
-              🌙 Puasa Tracker
-            </motion.button>
-          </Link>
-          <Link to="/zakat">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-full p-4 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors text-sm font-medium"
-            >
-              💰 Zakat
-            </motion.button>
-          </Link>
-          <Link to="/agenda">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-full p-4 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors text-sm font-medium"
-            >
-              📅 Agenda
-            </motion.button>
-          </Link>
+          {quickActions.map((action) => (
+            <Link key={action.to} to={action.to}>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className={`w-full p-4 rounded-xl transition-colors text-sm font-medium flex flex-col items-center justify-center gap-2 ${action.color}`}
+              >
+                <action.icon size={24} />
+                {action.label}
+              </motion.button>
+            </Link>
+          ))}
         </div>
       </div>
 
@@ -184,7 +170,7 @@ export function HomePage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-br from-amber-100 to-orange-100 rounded-2xl p-6 shadow-lg"
+          className="bg-gradient-to-br from-amber-100 to-orange-100 rounded-2xl p-6 shadow-lg border border-amber-200"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -193,7 +179,9 @@ export function HomePage() {
                 Rp {stats.totalZakat.toLocaleString('id-ID')}
               </p>
             </div>
-            <DollarSign size={48} className="text-amber-600" />
+            <div className="p-3 bg-white/50 rounded-full">
+              <DollarSign size={32} className="text-amber-600" />
+            </div>
           </div>
         </motion.div>
       )}
@@ -203,13 +191,13 @@ export function HomePage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.5 }}
-        className="bg-gradient-to-r from-teal-50 to-emerald-50 rounded-2xl p-6 border-l-4 border-emerald-500"
+        className="bg-gradient-to-r from-teal-50 to-emerald-50 rounded-2xl p-6 border-l-4 border-emerald-500 shadow-sm"
       >
-        <p className="text-emerald-800 italic text-center">
+        <p className="text-emerald-800 italic text-center font-medium text-lg">
           "Barangsiapa yang berpuasa Ramadhan karena iman dan mengharap ridha Allah,
           maka diampuni dosanya yang telah lalu."
         </p>
-        <p className="text-emerald-600 text-sm text-center mt-2">— HR. Bukhari & Muslim</p>
+        <p className="text-emerald-600 text-sm text-center mt-2 font-semibold">— HR. Bukhari & Muslim</p>
       </motion.div>
     </div>
   );

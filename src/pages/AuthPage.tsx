@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'motion/react';
 import { Moon, Star, Sparkles } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 export function AuthPage() {
   const navigate = useNavigate();
@@ -71,9 +71,8 @@ export function AuthPage() {
     
     if (success) {
       toast.success('Registrasi berhasil! Selamat datang 🌙');
-      navigate('/');
     } else {
-      toast.error('Email sudah terdaftar');
+      toast.error('Gagal mendaftar. Email mungkin sudah digunakan.');
     }
     
     setIsLoading(false);

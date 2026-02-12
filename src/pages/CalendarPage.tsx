@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useData } from '../context/DataContext';
 import { motion } from 'motion/react';
 import { Calendar as CalendarIcon, Moon, CheckCircle, BookOpen, Heart } from 'lucide-react';
@@ -11,19 +10,12 @@ export function CalendarPage() {
     getSedekahEntries,
     getZakatEntries,
     getAgendaEntries,
+    imsakiyah,
+    userProfile,
+    loading
   } = useData();
 
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-
-  // Generate calendar days for Ramadhan (assuming March 2026)
-  const ramadhanStart = new Date('2026-02-28');
-  const ramadhanDays = 30;
-
-  const getDayData = (dayNumber: number) => {
-    const date = new Date(ramadhanStart);
-    date.setDate(ramadhanStart.getDate() + dayNumber - 1);
-    const dateStr = date.toISOString().split('T')[0];
-
+  const getDayData = (dateStr: string) => {
     const puasa = getPuasaEntry(dateStr);
     const sholat = getSholatEntry(dateStr);
     const tilawah = getTilawahEntries(dateStr);
@@ -39,7 +31,6 @@ export function CalendarPage() {
     ].filter(Boolean).length;
 
     return {
-      date,
       dateStr,
       puasa: puasa.puasa,
       sholatCount,
@@ -50,6 +41,10 @@ export function CalendarPage() {
   };
 
   const zakatEntries = getZakatEntries();
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-64 text-emerald-600">Memuat Kalender...</div>;
+  }
 
   return (
     <div className="space-y-6 pb-20">
@@ -63,7 +58,7 @@ export function CalendarPage() {
           <div>
             <h2 className="text-3xl font-bold mb-2">Kalender Ramadhan</h2>
             <p className="text-indigo-100">
-              Pantau aktivitas ibadah sepanjang bulan suci
+              Pantau aktivitas ibadah Anda
             </p>
           </div>
           <CalendarIcon size={48} className="text-indigo-300 opacity-50" />
@@ -98,14 +93,15 @@ export function CalendarPage() {
         <h3 className="text-xl font-bold text-gray-800 mb-6">30 Hari Ramadhan 1447 H</h3>
         
         <div className="grid grid-cols-5 md:grid-cols-7 gap-3">
-          {Array.from({ length: ramadhanDays }, (_, i) => {
-            const dayNumber = i + 1;
-            const data = getDayData(dayNumber);
-            const isToday = data.dateStr === new Date().toISOString().split('T')[0];
+          {imsakiyah.map((day, i) => {
+            const dateStr = day.tanggal_masehi;
+            const data = getDayData(dateStr);
+            const isToday = dateStr === new Date().toISOString().split('T')[0];
+            const dateObj = new Date(dateStr);
 
             return (
               <motion.div
-                key={dayNumber}
+                key={day.hari_ke}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: i * 0.02 }}
@@ -120,10 +116,10 @@ export function CalendarPage() {
                   <div className={`text-lg font-bold ${
                     isToday ? 'text-emerald-700' : 'text-gray-800'
                   }`}>
-                    {dayNumber}
+                    {day.hari_ke}
                   </div>
                   <div className="text-xs text-gray-500">
-                    {data.date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                    {dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
                   </div>
                 </div>
 
@@ -183,7 +179,7 @@ export function CalendarPage() {
                       day: 'numeric',
                       month: 'long',
                       year: 'numeric',
-                    })} • {entry.paymentTime}
+                    })}
                   </p>
                 </div>
                 <p className="font-bold text-amber-700">
@@ -206,28 +202,28 @@ export function CalendarPage() {
           <div className="bg-white/70 rounded-xl p-4">
             <Moon className="text-purple-600 mb-2" size={24} />
             <p className="text-2xl font-bold text-purple-900">
-              {Array.from({ length: 30 }, (_, i) => getDayData(i + 1)).filter(d => d.puasa).length}
+              {imsakiyah.map(d => getDayData(d.tanggal_masehi)).filter(d => d.puasa).length}
             </p>
             <p className="text-sm text-purple-700">Hari Puasa</p>
           </div>
           <div className="bg-white/70 rounded-xl p-4">
             <CheckCircle className="text-emerald-600 mb-2" size={24} />
             <p className="text-2xl font-bold text-emerald-900">
-              {Array.from({ length: 30 }, (_, i) => getDayData(i + 1)).filter(d => d.sholatCount === 5).length}
+              {imsakiyah.map(d => getDayData(d.tanggal_masehi)).filter(d => d.sholatCount === 5).length}
             </p>
             <p className="text-sm text-emerald-700">Sholat Lengkap</p>
           </div>
           <div className="bg-white/70 rounded-xl p-4">
             <BookOpen className="text-blue-600 mb-2" size={24} />
             <p className="text-2xl font-bold text-blue-900">
-              {Array.from({ length: 30 }, (_, i) => getDayData(i + 1)).reduce((sum, d) => sum + d.tilawahCount, 0)}
+              {imsakiyah.map(d => getDayData(d.tanggal_masehi)).reduce((sum, d) => sum + d.tilawahCount, 0)}
             </p>
             <p className="text-sm text-blue-700">Total Ayat</p>
           </div>
           <div className="bg-white/70 rounded-xl p-4">
             <Heart className="text-pink-600 mb-2" size={24} />
             <p className="text-2xl font-bold text-pink-900">
-              {Array.from({ length: 30 }, (_, i) => getDayData(i + 1)).filter(d => d.sedekahCount > 0).length}
+              {imsakiyah.map(d => getDayData(d.tanggal_masehi)).filter(d => d.sedekahCount > 0).length}
             </p>
             <p className="text-sm text-pink-700">Hari Sedekah</p>
           </div>

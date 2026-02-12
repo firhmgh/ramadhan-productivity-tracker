@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase'; // Import supabase untuk fetch imsakiyah
 import { motion, AnimatePresence } from 'motion/react';
 import { Moon, CheckCircle, XCircle, Clock } from 'lucide-react';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 export function PuasaTrackerPage() {
   const { user } = useAuth();
@@ -15,12 +16,34 @@ export function PuasaTrackerPage() {
   const [showReasonModal, setShowReasonModal] = useState(false);
   const [reason, setReason] = useState('');
   const [sahurTime, setSahurTime] = useState('');
+  
+  // State untuk menyimpan data imsakiyah dari database
+  const [imsakiyahData, setImsakiyahData] = useState<any>(null);
 
+  // Effect untuk mengambil data puasa dan imsakiyah saat tanggal berubah
   useEffect(() => {
     const entry = getPuasaEntry(selectedDate);
     setPuasaEntry(entry);
     setSahurTime(entry.sahurTime || '');
-  }, [selectedDate]);
+    fetchImsakiyah();
+  }, [selectedDate, user?.mazhab]);
+
+  // Fungsi Fetch Imsakiyah dari Database
+  const fetchImsakiyah = async () => {
+    try {
+      const table = user?.mazhab === 'muhammadiyah' ? 'imsakiyah_muhammadiyah' : 'imsakiyah_nu';
+      const { data, error } = await supabase
+        .from(table)
+        .select('*')
+        .eq('tanggal_masehi', selectedDate)
+        .maybeSingle();
+
+      if (error) throw error;
+      setImsakiyahData(data);
+    } catch (error) {
+      console.error("Error fetching imsakiyah:", error);
+    }
+  };
 
   const handleSahurToggle = (done: boolean) => {
     if (done && !sahurTime) {
@@ -30,6 +53,7 @@ export function PuasaTrackerPage() {
 
     const updated = {
       ...puasaEntry,
+      date: selectedDate, // Pastikan tanggal ikut terupdate
       sahur: done,
       sahurTime: done ? sahurTime : undefined,
     };
@@ -49,6 +73,7 @@ export function PuasaTrackerPage() {
     } else {
       const updated = {
         ...puasaEntry,
+        date: selectedDate,
         puasa: true,
         reason: undefined,
       };
@@ -64,11 +89,11 @@ export function PuasaTrackerPage() {
       return;
     }
 
-    // Check if female and reason is Haid - this is allowed
     const isAllowed = user?.gender === 'female' && reason === 'Haid';
 
     const updated = {
       ...puasaEntry,
+      date: selectedDate,
       puasa: false,
       reason,
     };
@@ -86,25 +111,6 @@ export function PuasaTrackerPage() {
   };
 
   const stats = getStats();
-
-  // Mazhab reminder
-  const getMazhabReminder = () => {
-    if (user?.mazhab === 'muhammadiyah') {
-      return {
-        imsak: '04:30',
-        subuh: '04:40',
-        berbuka: '18:05',
-      };
-    } else {
-      return {
-        imsak: '04:20',
-        subuh: '04:30',
-        berbuka: '18:05',
-      };
-    }
-  };
-
-  const times = getMazhabReminder();
 
   return (
     <div className="space-y-6 pb-20">
@@ -125,7 +131,7 @@ export function PuasaTrackerPage() {
         />
       </motion.div>
 
-      {/* Mazhab Info */}
+      {/* Mazhab Info - Terintegrasi Database */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -133,22 +139,33 @@ export function PuasaTrackerPage() {
       >
         <h3 className="text-lg font-bold text-purple-900 mb-3 flex items-center gap-2">
           <Clock className="text-purple-600" />
-          Waktu Berdasarkan Mazhab {user?.mazhab.toUpperCase()}
+          Waktu Berdasarkan Mazhab {user?.mazhab?.toUpperCase() || 'NU'}
         </h3>
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white/70 rounded-xl p-3">
+          <div className="bg-white/70 rounded-xl p-3 text-center">
             <p className="text-xs text-purple-700 mb-1">Imsak</p>
-            <p className="text-lg font-bold text-purple-900">{times.imsak}</p>
+            <p className="text-lg font-bold text-purple-900">
+              {imsakiyahData?.imsak?.substring(0, 5) || '--:--'}
+            </p>
           </div>
-          <div className="bg-white/70 rounded-xl p-3">
+          <div className="bg-white/70 rounded-xl p-3 text-center">
             <p className="text-xs text-purple-700 mb-1">Subuh</p>
-            <p className="text-lg font-bold text-purple-900">{times.subuh}</p>
+            <p className="text-lg font-bold text-purple-900">
+              {imsakiyahData?.shubuh?.substring(0, 5) || '--:--'}
+            </p>
           </div>
-          <div className="bg-white/70 rounded-xl p-3">
+          <div className="bg-white/70 rounded-xl p-3 text-center">
             <p className="text-xs text-purple-700 mb-1">Berbuka</p>
-            <p className="text-lg font-bold text-purple-900">{times.berbuka}</p>
+            <p className="text-lg font-bold text-purple-900">
+              {imsakiyahData?.maghrib?.substring(0, 5) || '--:--'}
+            </p>
           </div>
         </div>
+        {!imsakiyahData && (
+          <p className="text-[10px] text-purple-500 mt-2 italic text-center">
+            *Data jadwal untuk tanggal ini belum tersedia di database
+          </p>
+        )}
       </motion.div>
 
       {/* Sahur Tracker */}
@@ -214,14 +231,6 @@ export function PuasaTrackerPage() {
               </div>
             </div>
           </div>
-
-          {!puasaEntry.sahur && (
-            <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
-              <p className="text-sm text-orange-700">
-                ⚠️ Tidak sahur dapat mengurangi stamina puasa. Pastikan tubuh tetap terhidrasi!
-              </p>
-            </div>
-          )}
         </div>
       </motion.div>
 
@@ -247,11 +256,6 @@ export function PuasaTrackerPage() {
               {puasaEntry.reason && (
                 <div className="mt-2">
                   <p className="text-sm text-red-600">Alasan: {puasaEntry.reason}</p>
-                  {user?.gender === 'female' && puasaEntry.reason === 'Haid' && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      ✓ Haid adalah alasan yang sah untuk tidak berpuasa
-                    </p>
-                  )}
                 </div>
               )}
             </div>
@@ -301,27 +305,6 @@ export function PuasaTrackerPage() {
           </div>
           <Moon size={64} className="text-purple-300 opacity-50" />
         </div>
-        <div className="mt-4 bg-white/20 rounded-xl p-3">
-          <p className="text-sm text-purple-100">
-            Tersisa: {30 - stats.totalPuasa} hari lagi menuju Ramadhan sempurna! 💪
-          </p>
-        </div>
-      </motion.div>
-
-      {/* Tips */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.4 }}
-        className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl p-6 border-l-4 border-amber-500"
-      >
-        <h4 className="font-semibold text-amber-800 mb-2">💡 Tips Puasa Sehat</h4>
-        <ul className="text-sm text-amber-700 space-y-1">
-          <li>• Sahur dengan makanan bergizi dan cukup air putih</li>
-          <li>• Hindari makanan terlalu manis atau asin saat berbuka</li>
-          <li>• Istirahat cukup dan jaga pola tidur</li>
-          <li>• Perbanyak ibadah dan dzikir di waktu luang</li>
-        </ul>
       </motion.div>
 
       {/* Reason Modal */}
@@ -345,7 +328,7 @@ export function PuasaTrackerPage() {
               <select
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 mb-4 focus:outline-none focus:ring-2 focus:ring-red-400"
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 mb-4"
               >
                 <option value="">Pilih alasan...</option>
                 {user?.gender === 'female' && <option value="Haid">Haid</option>}
@@ -354,14 +337,6 @@ export function PuasaTrackerPage() {
                 <option value="Lainnya">Lainnya</option>
               </select>
               
-              {user?.gender === 'female' && reason === 'Haid' && (
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl">
-                  <p className="text-sm text-blue-700">
-                    ℹ️ Haid adalah alasan yang sah untuk tidak berpuasa dan wajib mengqadha di hari lain.
-                  </p>
-                </div>
-              )}
-
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowReasonModal(false)}

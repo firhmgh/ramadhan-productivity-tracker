@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useNavigate } from 'react-router';
+import { supabase } from '../lib/supabase';
 
 export interface User {
   id: string;
@@ -34,73 +34,117 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Check for existing session
-    const storedUser = localStorage.getItem('ramadhan_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+  // Fungsi untuk mengambil data detail profile dari tabel public.profiles
+  const fetchProfile = async (userId: string, email: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        // Jika profile belum ada (misal proses insert di register lambat), 
+        // kita tunggu sejenak atau biarkan saja
+        console.warn('Profile not found yet, retrying...');
+        return;
+      }
+
+      if (data) {
+        setUser({
+          id: data.id,
+          fullName: data.full_name || '',
+          age: data.age || 0,
+          gender: data.gender || 'male',
+          mazhab: data.mazhab || 'nu',
+          email: email,
+          createdAt: data.created_at,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        fetchProfile(session.user.id, session.user.email!);
+      } else {
+        setIsLoading(false);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        fetchProfile(session.user.id, session.user.email!);
+      } else {
+        setUser(null);
+        setIsLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const register = async (data: RegisterData): Promise<boolean> => {
     try {
-      // Simulate API call
-      const users = JSON.parse(localStorage.getItem('ramadhan_users') || '[]');
-      
-      // Check if email already exists
-      if (users.find((u: any) => u.email === data.email)) {
-        return false;
-      }
-
-      const newUser: User = {
-        id: `user_${Date.now()}`,
-        fullName: data.fullName,
-        age: data.age,
-        gender: data.gender,
-        mazhab: data.mazhab,
+      setIsLoading(true);
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
-        createdAt: new Date().toISOString(),
-      };
-
-      // Store user credentials
-      users.push({
-        ...newUser,
-        password: data.password, // In real app, this would be hashed
+        password: data.password,
       });
 
-      localStorage.setItem('ramadhan_users', JSON.stringify(users));
-      localStorage.setItem('ramadhan_user', JSON.stringify(newUser));
-      setUser(newUser);
-      return true;
+      if (authError) throw authError;
+
+      if (authData.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: authData.user.id,
+            full_name: data.fullName,
+            age: data.age,
+            gender: data.gender,
+            mazhab: data.mazhab,
+            email: data.email
+          });
+
+        if (profileError) throw profileError;
+
+        await fetchProfile(authData.user.id, data.email);
+        return true;
+      }
+      return false;
     } catch (error) {
       console.error('Registration error:', error);
       return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const users = JSON.parse(localStorage.getItem('ramadhan_users') || '[]');
-      const foundUser = users.find(
-        (u: any) => u.email === email && u.password === password
-      );
-
-      if (foundUser) {
-        const { password: _, ...userWithoutPassword } = foundUser;
-        localStorage.setItem('ramadhan_user', JSON.stringify(userWithoutPassword));
-        setUser(userWithoutPassword);
-        return true;
-      }
-      return false;
+      setIsLoading(true);
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) throw error;
+      return true;
     } catch (error) {
       console.error('Login error:', error);
       return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('ramadhan_user');
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
   };
 
